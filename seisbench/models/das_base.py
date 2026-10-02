@@ -31,6 +31,11 @@ except ImportError:
     xdas = sbu.MissingOptionalDependency("xdas", "xdas")
     DataArray = sbu.MissingOptionalDependency("xdas", "xdas")
 
+try:
+    import unidas
+except ImportError:
+    unidas = sbu.MissingOptionalDependency("unidas", "unidas")
+
 
 # Type conversion map
 TORCH_TO_NUMPY = {
@@ -1515,8 +1520,11 @@ class DASModel(SeisBenchModel, ABC):
         return asyncio.run(self.classify_async(*args, **kwargs))
 
     async def annotate_async(
-        self, data: "DataArray", callback: DASAnnotateCallback, **kwargs
+        self, data: Any, callback: DASAnnotateCallback, **kwargs
     ) -> None:
+        if not isinstance(data, xdas.DataArray):
+            # Other DAS data structures (e.g., DASCore Patch) are converted without copying the data
+            data = unidas.convert(data, "xdas.DataArray")
         self._verify_argdict(kwargs)
         # Kwargs overwrite default args
         argdict = self.default_args.copy()
@@ -1819,7 +1827,7 @@ class DASModel(SeisBenchModel, ABC):
         if pbar is not None:
             pbar.close()
 
-    async def classify_async(self, data: "DataArray", **kwargs) -> sbu.ClassifyOutput:
+    async def classify_async(self, data: Any, **kwargs) -> sbu.ClassifyOutput:
         """
         The classify method is used to process the data and apply the default callback.
         The ``kwargs`` are split into two groups: those that are passed to the callback and those that are passed to the

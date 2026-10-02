@@ -937,3 +937,39 @@ def test_virtual_data_filter():
                     coord.channel_int : coord.channel_int + coord.w_channel,
                 ],
             )
+
+
+@pytest.fixture
+def xarray_data():
+    xr = pytest.importorskip("xarray")
+    return xr.DataArray(
+        np.random.rand(300, 500).astype(np.float32),
+        coords={
+            "distance": np.arange(300) * 2.0,
+            "time": np.datetime64("2023-01-01", "ns")
+            + np.arange(500) * np.timedelta64(10, "ms"),
+        },
+    )
+
+
+def test_annotate_unidas_input(xarray_data):
+    unidas = pytest.importorskip("unidas")
+    model = DemoModel()
+
+    callbacks = [sbm.InMemoryCollectionCallback() for _ in range(2)]
+    model.annotate(xarray_data, callbacks[0])
+    model.annotate(unidas.convert(xarray_data, "xdas.DataArray"), callbacks[1])
+
+    out, expected = (callback.annotations["x"] for callback in callbacks)
+    assert isinstance(out, DataArray)
+    assert out.equals(expected)
+
+
+def test_annotate_missing_unidas(monkeypatch, xarray_data):
+    monkeypatch.setattr(
+        sbm.das_base,
+        "unidas",
+        sbm.das_base.sbu.MissingOptionalDependency("unidas", "unidas"),
+    )
+    with pytest.raises(ImportError, match="unidas"):
+        DemoModel().annotate(xarray_data, sbm.InMemoryCollectionCallback())

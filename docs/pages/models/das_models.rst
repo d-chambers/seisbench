@@ -17,6 +17,11 @@ xdas. In the background, SeisBench will take care of chunking, reassambling, bat
 and even handling larger-than-memory data. To accommodate the particularities of DAS data, the interface is slightly
 different than for regular waveform data.
 
+If the optional `unidas <https://github.com/dasdae/unidas>`_ package is installed, ``annotate`` and ``classify`` also
+accept data structures from other DAS libraries, e.g., DASCore Patches. These are converted to xdas DataArrays without
+copying the data. Output arrays, e.g., from :py:class:`~seisbench.models.das_base.InMemoryCollectionCallback`, are
+always xdas DataArrays; use ``unidas.convert`` to convert them back.
+
 The ``annotate`` function takes an xdas DataArra object and a callback as input. The callback processes the outputs of
 the model, for example, the pick probability maps, and transforms them into the desired information. We use callbacks
 as the output data will often be too large to fit in memory. SeisBench comes with a range of pre-implemented callbacks,
