@@ -14,7 +14,7 @@ Each dataset is stored in a single folder and consists of pairs of files: a meta
 The metadata file is in `parquet format`, a tabular data format that can be read with all common libraries, e.g.,
 `pandas`. In contrast to the csv format used for regular datasets, parquet has faster read performance and is type-safe.
 The records file is an hdf5 file, containing the actual DAS record, as well as the annotations like phase picks.
-Records files written by SeisBench carry the root attributes ``file_format`` (``seisbench-das``) and ``format_version``.
+Records files written with :py:class:`~seisbench.data.das_base.DASDataWriter` carry the root attributes ``file_format`` (``seisbench-das``) and ``format_version`` (currently ``1.0``).
 As a general rule, annotations that are common to the whole trace, e.g., the magnitude of the event, should be an entry
 in the metadata, while annotations that are channel-specific, e.g., the P wave arrival times, should be stored in the
 records file.
