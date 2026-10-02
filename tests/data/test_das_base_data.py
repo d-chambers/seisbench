@@ -78,6 +78,8 @@ def test_das_data_writer(tmp_path):
         tmp_path / "example_c" / sbd.DASDataset.DATA_FILE.replace("$CHUNK", chunk), "r"
     ) as f:
         assert "records/record_0/record" in f
+        assert f.attrs["file_format"] == sbd.DASDataWriter.FILE_FORMAT
+        assert f.attrs["format_version"] == sbd.DASDataWriter.FORMAT_VERSION
         assert "records/record_0/annotations/P" in f
         assert "records/record_0/annotations/S" in f
 

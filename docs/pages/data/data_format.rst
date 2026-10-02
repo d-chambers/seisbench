@@ -41,6 +41,7 @@ The hdf5 file should have two groups at root level: `data` and `data_format`.
 The `data` group contains all the traces.
 The trace corresponding to a metadata row is located at `data/[trace_name]` inside the hdf5 file.
 The `data_format` group describes the format of the dataset and is described below.
+Files written by SeisBench also carry the root attributes `file_format` (`seisbench-waveform`) and `format_version`.
 
 The format has two extensions, :ref:`chunking<chunking>` and :ref:`trace blocks<trace_blocks>`.
 Chunking can be used to split very large datasets semantically.

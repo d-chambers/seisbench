@@ -2567,6 +2567,9 @@ class WaveformDataWriter:
     :return: None
     """
 
+    FILE_FORMAT = "seisbench-waveform"
+    FORMAT_VERSION = "1.0"
+
     def __init__(self, metadata_path, waveforms_path):
         self.metadata_path = Path(metadata_path)
         self.waveforms_path = Path(waveforms_path)
@@ -2682,6 +2685,8 @@ class WaveformDataWriter:
 
         if self._waveform_file is None:
             self._waveform_file = h5py.File(self.waveforms_path, "w")
+            self._waveform_file.attrs["file_format"] = self.FILE_FORMAT
+            self._waveform_file.attrs["format_version"] = self.FORMAT_VERSION
             self._waveform_file.create_group("data")
 
         if len(bucket) == 1:

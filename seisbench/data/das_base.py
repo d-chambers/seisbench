@@ -385,6 +385,9 @@ class DASDataWriter:
                    Otherwise, only raise a warning.
     """
 
+    FILE_FORMAT = "seisbench-das"
+    FORMAT_VERSION = "1.0"
+
     def __init__(
         self,
         path: Path | str,
@@ -405,6 +408,8 @@ class DASDataWriter:
 
         self._metadata = []
         self._data_file = h5py.File(self.data_path, "w")
+        self._data_file.attrs["file_format"] = self.FILE_FORMAT
+        self._data_file.attrs["format_version"] = self.FORMAT_VERSION
         self._data_group = self._data_file.create_group("records")
         self._record_count = 0
 

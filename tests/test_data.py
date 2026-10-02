@@ -778,6 +778,8 @@ def test_bucketer_cache(tmp_path: Path):
         assert len(f["data"].keys()) == 2
         assert f["data/bucket0"].shape == (10, 3, 12)
         assert f["data/bucket1"].shape == (9, 3, 12)
+        assert f.attrs["file_format"] == sbd.WaveformDataWriter.FILE_FORMAT
+        assert f.attrs["format_version"] == sbd.WaveformDataWriter.FORMAT_VERSION
 
     metadata = pd.read_csv(data_path / "metadata.csv")
     for trace_name in metadata["trace_name"].values:
