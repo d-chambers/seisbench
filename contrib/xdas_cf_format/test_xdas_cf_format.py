@@ -39,8 +39,14 @@ def chunks(tmp_path_factory):
     return out, records, annotations
 
 
+# netCDF dimension ids differ between writers (both are valid); the references hold
+# object addresses. Their dtypes and shapes are still compared.
+_ID_ATTRS = {"_Netcdf4Dimid", "_Netcdf4Coordinates", "DIMENSION_LIST", "REFERENCE_LIST"}
+
+
 def _structure(path, group):
-    """Every object below group: type, dtype, shape, fill value and attribute types."""
+    """Every object below group: type, dtype, shape, fill value, attribute types and
+    attribute values (except dimension ids and references)."""
     res = {}
     with h5py.File(path) as f:
 
@@ -50,7 +56,11 @@ def _structure(path, group):
                 type(obj).__name__,
                 None if is_group else (obj.dtype, obj.shape, repr(obj.fillvalue)),
                 {
-                    k: (obj.attrs.get_id(k).dtype, obj.attrs.get_id(k).shape)
+                    k: (
+                        obj.attrs.get_id(k).dtype,
+                        obj.attrs.get_id(k).shape,
+                        None if k in _ID_ATTRS else repr(obj.attrs[k]),
+                    )
                     for k in obj.attrs
                 },
             )
@@ -145,3 +155,44 @@ def test_h5netcdf_patch_resolves_the_same_dimensions(chunks):
         "time",
         "distance",
     )
+
+
+@pytest.mark.parametrize("writer", [XdasCFDataWriter, XdasSaveWriter])
+def test_rejects_picks_not_matching_channels(tmp_path, writer):
+    with writer(tmp_path, "0") as w:
+        with pytest.raises(ValueError, match="Annotation P has length 2"):
+            w.add_record(dict(METADATA), np.zeros((10, 4)), {"P": np.zeros(2)})
+
+
+@pytest.mark.parametrize("alias", [False, True])
+def test_h5netcdf_patch_shadowed_and_aliased_scales(tmp_path, alias):
+    """A child variable using the root scale x while the child defines its own x; with
+    alias, the root scale is also hard-linked as z."""
+    path = tmp_path / "shadow.nc"
+    with h5netcdf_patch.core.File(path, "w") as f:
+        f.dimensions = {"x": 3}
+        f.create_variable("a", ("x",), data=np.zeros(3))
+        child = f.create_group("child")
+        child.dimensions = {"x": 3}
+        child.create_variable("b", ("x",), data=np.zeros(3))
+    with h5py.File(path, "a") as f:
+        v = f["child"].create_dataset("c", data=np.zeros(3))
+        v.dims[0].attach_scale(f["x"])
+        if alias:
+            f["z"] = f["x"]
+
+    def dimensions():
+        with h5netcdf_patch.core.File(path, "r") as f:
+            child = f["child"]
+            return {k: child[k].dimensions for k in ("b", "c")} | {
+                "a": f["a"].dimensions
+            }
+
+    h5netcdf_patch.disable()
+    upstream = dimensions()
+    h5netcdf_patch.enable()
+    try:
+        patched = dimensions()
+    finally:
+        h5netcdf_patch.disable()
+    assert patched == upstream

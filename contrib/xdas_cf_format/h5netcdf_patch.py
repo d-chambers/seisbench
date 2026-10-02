@@ -28,19 +28,23 @@ def _lookup_dimensions(self):
     if core._unlabeled_dimension_mix(self._h5ds) != "labeled":
         return _original(self)
 
+    # Every dimension in scope, including ones shadowed by an inner group
     candidates = [
         (name, dim._h5ds)
-        for name, dim in self._parent._all_dimensions.items()
+        for dims in self._parent._all_dimensions.maps
+        for name, dim in dims.items()
         if not dim._phony
     ]
     names = []
     for ref in list(attrs.get("DIMENSION_LIST", [])):
         # As upstream: if several scales are attached, the last one wins
         obj = self._root._h5file[ref[-1]]
-        match = next((name for name, h5ds in candidates if h5ds == obj), None)
-        if match is None:  # scale outside the group chain: keep upstream behavior
+        matches = {name for name, h5ds in candidates if h5ds == obj}
+        if len(matches) != 1:
+            # Scale outside the group chain, or reachable under several names
+            # (hard links): only HDF5's own path lookup gives upstream's answer
             return _original(self)
-        names.append(match)
+        names.append(matches.pop())
     return tuple(names)
 
 

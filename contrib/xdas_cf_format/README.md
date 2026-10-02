@@ -21,7 +21,7 @@ This prototype explores storing each SeisBench DAS record as an xdas-readable CF
 
 - `xdas_cf_format.py`: `XdasSaveWriter` (reference writer using xdas' `DataMapping.to_netcdf`), `XdasCFDataWriter` (same layout written with plain h5py), and `XdasCFDataset` (parquet index, h5py `get_sample`, `open_xdas`).
 - `h5netcdf_patch.py`: candidate h5netcdf fix for slow dimension-name lookups, with `enable()`/`disable()`.
-- `test_xdas_cf_format.py`: both writers produce identical records through xdas, xarray, SeisBench-style reads and at the HDF5 level (objects, dtypes, fill values, attribute types); netCDF-C reads the files; the patch resolves the same dimension names as upstream h5netcdf.
+- `test_xdas_cf_format.py`: both writers produce identical records through xdas, xarray and SeisBench-style reads, and the same HDF5 objects, dtypes, fill values and attributes (values compared except netCDF dimension ids and references, which legitimately differ); netCDF-C reads the files; the patch resolves the same dimension names as upstream h5netcdf, including shadowed and hard-linked scales; mismatched pick lengths are rejected.
 - `benchmark.py`: write and read costs against the current format.
 - `name_lookup_repro.py`: HDF5-only reproduction of the name-lookup cost.
 
@@ -36,9 +36,9 @@ Writing through xdas is slow, and opening records with xdas slows down as the fi
 
 The prototype addresses these as follows:
 
-- `XdasCFDataWriter` writes the netCDF4 layout with h5py through one handle (fixes 1 and 2). xdas and xarray still produce the content, and the output is identical to xdas' own.
+- `XdasCFDataWriter` writes the netCDF4 layout with h5py through one handle (fixes 1 and 2). xdas and xarray still produce the content, and the records match xdas' own output except for the numbering of netCDF dimension ids and `_NCProperties`.
 - Bucketing records bounds the children per group (works around 4).
-- `h5netcdf_patch.py` matches the dereferenced scales against the dimensions already in scope by object identity instead of by name (fixes 3). It is a candidate for upstream.
+- `h5netcdf_patch.py` matches the dereferenced scales against the dimensions already in scope by object identity instead of by name (fixes 3), and falls back to upstream when that match is ambiguous (e.g. a scale hard-linked under two names) or the scale is out of scope. It is a candidate for upstream.
 
 ## Results
 
@@ -46,14 +46,14 @@ The prototype addresses these as follows:
 
 | records | setup | write | get_sample | xdas open |
 |---|---|---|---|---|
-| 2000 | current SeisBench format | 0.38 | 0.51 | n/a |
-| 2000 | xdas save, one group | 82.84 | 0.54 | 607.92 |
-| 2000 | h5py writer, one group | 4.63 | 0.58 | 633.57 |
-| 2000 | h5py writer, buckets | 4.65 | 0.55 | 699.43 |
-| 2000 | h5py writer, one group + patch | 5.03 | 0.58 | 69.82 |
-| 2000 | h5py writer, buckets + patch | 5.24 | 0.57 | 29.67 |
+| 2000 | current SeisBench format | 0.42 | 0.50 | n/a |
+| 2000 | xdas save, one group | 81.31 | 0.53 | 743.32 |
+| 2000 | h5py writer, one group | 4.96 | 0.54 | 784.93 |
+| 2000 | h5py writer, buckets | 4.67 | 0.57 | 513.10 |
+| 2000 | h5py writer, one group + patch | 4.94 | 0.57 | 69.13 |
+| 2000 | h5py writer, buckets + patch | 6.19 | 0.55 | 28.76 |
 
-With the h5py writer, buckets and the patch, write and xdas-open costs stay flat with file size (about 30 ms per xdas open at 10,000 records in an earlier run). SeisBench's h5py `get_sample` is unaffected by the layout. The remaining write cost against the current format (about 5 ms vs 0.4 ms) is intrinsic to the CF layout: 13 HDF5 objects and about 32 attributes per record, plus xdas/xarray encoding.
+With the h5py writer, buckets and the patch, write and xdas-open costs stay flat with file size (about 30 ms per xdas open at 10,000 records in an earlier run). SeisBench's h5py `get_sample` is unaffected by the layout. The remaining write cost against the current format (about 5 ms vs 0.4 ms) is not broken down by the benchmark, which times the whole writer with one repeated record. A cProfile run of the h5py writer attributed about 60% to creating the CF layout's 13 HDF5 objects and about 32 attributes per record, and about 30% to xdas/xarray coordinate encoding. Timings vary by roughly 20% between runs.
 
 ## Caveats
 

@@ -76,6 +76,13 @@ class _ChunkWriter:
         self._count = 0
 
     def add_record(self, metadata, data, annotations):
+        nx = np.shape(data)[1]
+        for key, value in annotations.items():
+            if len(value) != nx:
+                raise ValueError(
+                    f"Annotation {key} has length {len(value)}, "
+                    f"but data has {nx} channels."
+                )
         n = self._count
         self._count += 1
         name = self._record_name(n)
